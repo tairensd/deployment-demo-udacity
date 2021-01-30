@@ -90,7 +90,7 @@ workflows:
             - configure_infrastructure
       - hold:
           type: approval
-            requires: 
+          requires: 
               - smoke_test
       - destroy_infrastructure:
           requires:
