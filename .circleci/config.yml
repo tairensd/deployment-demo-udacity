@@ -33,7 +33,7 @@ jobs:
       - create_environment
       - get_stack_ip
       - save_cache:
-          key: ip-address
+          key: ip-address-{{ .Branch }}-{{ .BuildNum }}
           paths:
             - ~/inventory
 
@@ -59,7 +59,7 @@ jobs:
           command: |
             export ANSIBLE_HOST_KEY_CHECKING=False
       - restore_cache:
-          key: ip-address
+          key: ip-address-{{ .Branch }}-{{ .BuildNum }}
       - run:
           name: Configure server
           command: |
@@ -71,7 +71,7 @@ jobs:
       steps:
         - run: apk add --update curl
         - restore_cache:
-            key: ip-address
+            key: ip-address-{{ .Branch }}-{{ .BuildNum }}
         - run:
             name: smoke test.
             command: |
