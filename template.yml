@@ -2,11 +2,11 @@ Resources:
   EC2Instance:
     Type: "AWS::EC2::Instance"
     Properties:
-    InstanceType: "t2.micro"
+      InstanceType: "t2.micro"
       SecurityGroups:
         - !Ref InstanceSecurityGroup
       KeyName: private-server
-      ImageId: "ami-0ff4c8fb495a5a50d" # you may need to find out what instance types are available in your region - use https://cloud-images.ubuntu.com/locator/ec2/
+      ImageId: "ami-0ff4c8fb495a5a50d"
   InstanceSecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
