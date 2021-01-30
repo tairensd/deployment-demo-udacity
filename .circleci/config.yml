@@ -11,7 +11,11 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            apk add --update ansible # install the dependencies needed for your playbook
+            apk add --update ansible 
+      - run:
+          name: Disable Host Key Checking
+          command: |
+            export ANSIBLE_HOST_KEY_CHECKING=False
       - run:
           name: Configure server
           command: |
