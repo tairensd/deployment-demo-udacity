@@ -1,9 +1,47 @@
 version: 2.1
+commands:
+  destroy_environment:
+    steps:
+      - run:
+          name: Destroy Environment
+          command: |
+            aws cloudformation delete-stack --stack-name stack-${CIRCLE_WORKFLOW_ID}
+  
+  create_environment:
+    steps:
+      - run:
+          name: Create Environment
+          command: |
+            aws cloudformation deploy \
+              --template-file template.yml \
+              --stack-name stack-${CIRCLE_WORKFLOW_ID}
+
+  get_stack_ip:
+    steps:
+      - run:
+          name: export IP to environment variables
+          command: |
+            declare -g IP=`aws ec2 describe-instances --query 'Reservations[*].Instances[*].PublicIpAddress' --filters "Name=tag:aws:cloudformation:stack-name,Values=stack-${CIRCLE_WORKFLOW_ID}" --output text`
 
 jobs:
+
+  create_infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - create_environment
+
+  destroy_infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - destroy_environment
+
   configure_infrastructure:
     docker:
       - image: python:3.7-alpine3.11
+      - image: amazon/aws-cli
     steps:
       - checkout
       - add_ssh_keys:
@@ -16,20 +54,23 @@ jobs:
           name: Disable Host Key Checking
           command: |
             export ANSIBLE_HOST_KEY_CHECKING=False
+      - get_stack_ip
       - run:
           name: Configure server
           command: |
-            ansible-playbook -i inventory main-remote.yml
+            ansible-playbook -i ${IP} main-remote.yml
   
   smoke_test:
       docker:
         - image: alpine:latest
+        - image: amazon/aws-cli
       steps:
+        - get_stack_ip
         - run: apk add --update curl
         - run:
             name: smoke test.
             command: |
-              URL="http://ec2-35-177-253-238.eu-west-2.compute.amazonaws.com:3000/"
+              URL="${IP}:3000/"
               if curl -s --head ${URL} 
               then
                return 0
@@ -40,7 +81,18 @@ jobs:
 workflows:
   my_workflow:
     jobs:
-      - configure_infrastructure
+      - create_infrastructure
+      - configure_infrastructure:
+          requires:
+            - create_infrastructure
       - smoke_test:
           requires:
             - configure_infrastructure
+      - hold:
+          type: approval
+            requires: 
+              - smoke_test
+      - destroy_infrastructure:
+          requires:
+            - hold
+
