@@ -21,7 +21,7 @@ commands:
       - run:
           name: export IP to environment variables
           command: |
-            declare -g IP=`aws ec2 describe-instances --query 'Reservations[*].Instances[*].PublicIpAddress' --filters "Name=tag:aws:cloudformation:stack-name,Values=stack-${CIRCLE_WORKFLOW_ID}" --output text`
+            aws ec2 describe-instances --query 'Reservations[*].Instances[*].PublicIpAddress' --filters "Name=tag:aws:cloudformation:stack-name,Values=stack-${CIRCLE_WORKFLOW_ID}" --output text >> ~/inventory
 
 jobs:
 
@@ -31,6 +31,11 @@ jobs:
     steps:
       - checkout
       - create_environment
+      - get_stack_ip
+      - save_cache:
+          key: ip-address
+          paths:
+            - ~/inventory
 
   destroy_infrastructure:
     docker:
@@ -41,7 +46,6 @@ jobs:
   configure_infrastructure:
     docker:
       - image: python:3.7-alpine3.11
-      - image: amazon/aws-cli
     steps:
       - checkout
       - add_ssh_keys:
@@ -54,22 +58,24 @@ jobs:
           name: Disable Host Key Checking
           command: |
             export ANSIBLE_HOST_KEY_CHECKING=False
-      - get_stack_ip
+      - restore_cache:
+          key: ip-address
       - run:
           name: Configure server
           command: |
-            ansible-playbook -i ${IP} main-remote.yml
+            ansible-playbook -i ~/inventory main-remote.yml
   
   smoke_test:
       docker:
         - image: alpine:latest
-        - image: amazon/aws-cli
       steps:
-        - get_stack_ip
         - run: apk add --update curl
+        - restore_cache:
+            key: ip-address
         - run:
             name: smoke test.
             command: |
+              IP=`cat ~/inventory`
               URL="${IP}:3000/"
               if curl -s --head ${URL} 
               then
